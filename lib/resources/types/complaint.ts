@@ -1,7 +1,7 @@
 export interface Complaint {
   complaintId: string;
   customerId: string;
-  category: 'billing' | 'technical' | 'service';
+  category: 'billing' | 'technical' | 'service' | 'test';
   status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
   description: string;
   createdAt: string;

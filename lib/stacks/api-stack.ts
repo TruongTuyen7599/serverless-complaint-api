@@ -59,7 +59,8 @@ export class ApiStack extends cdk.Stack {
 
     processComplaintLambda.addEventSource(
       new lambda_events.SqsEventSource(complaintQueue, {
-        batchSize: 10, // Process 10 messages cùng lúc
+        batchSize: 10,
+        reportBatchItemFailures: true,
       })
     );
 

@@ -19,7 +19,7 @@ export class EventStack extends cdk.Stack {
 
     this.complaintQueue = new sqs.Queue(this, 'ComplaintQueue', {
       queueName: 'complaint-queue',
-      visibilityTimeout: cdk.Duration.seconds(300),
+      visibilityTimeout: cdk.Duration.seconds(5),
       deadLetterQueue: {
         queue: this.complaintDLQ,
         maxReceiveCount: 3,

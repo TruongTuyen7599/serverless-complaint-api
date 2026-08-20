@@ -23,11 +23,24 @@ export const handler: SQSHandler = async (event: SQSEvent) => {
 
   for (const record of event.Records) {
     try {
+      // Get retry attempt count from SQS attributes
+      const retryAttempt = parseInt(
+        record.attributes.ApproximateReceiveCount || "1",
+        10
+      );
+
       console.log(`\n🔄 Processing message: ${record.messageId}`);
+      console.log(`   📊 Retry attempt: ${retryAttempt}/3`);
+
       const sqsBody = JSON.parse(record.body);
       const snsMessage = JSON.parse(sqsBody.Message);
       const complaint = snsMessage as ComplaintMessage;
-
+      if (complaint.category === "technical") {
+        console.error(`❌ SIMULATED FAILURE (attempt ${retryAttempt}/3) - Testing DLQ`);
+        failedMessageIds.push(record.messageId);
+        failCount++;
+        continue; // ← Skip processing, move to next message
+      }
       console.log(`   - ComplaintID: ${complaint.complaintId}`);
       console.log(`   - Category: ${complaint.category}`);
 
