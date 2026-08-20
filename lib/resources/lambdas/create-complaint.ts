@@ -1,11 +1,14 @@
 import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { marshall } from '@aws-sdk/util-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
 const dynamoClient = new DynamoDBClient({});
+const snsClient = new SNSClient({});
 
 const VALID_CATEGORIES = ['billing', 'technical', 'service'];
 const TABLE_NAME = process.env.TABLE_NAME || 'Complaints';
+const TOPIC_ARN = process.env.TOPIC_ARN || ''; 
 
 interface CreateComplaintRequest {
   customerId?: string;
@@ -64,7 +67,31 @@ export const handler = async (event: any) => {
 
     await dynamoClient.send(command);
 
-    console.log('Complaint created:', complaint);
+  
+    if (TOPIC_ARN) {
+      try {
+        const publishCommand = new PublishCommand({
+          TopicArn: TOPIC_ARN,
+          Message: JSON.stringify(complaint),
+          Subject: `New Complaint: ${complaint.complaintId}`,
+          MessageAttributes: {
+            category: {
+              DataType: 'String',
+              StringValue: complaint.category,
+            },
+            customerId: {
+              DataType: 'String',
+              StringValue: complaint.customerId,
+            },
+          },
+        });
+
+        await snsClient.send(publishCommand);
+        console.log('Event published to SNS:', complaint.complaintId);
+      } catch (snsError) {
+        console.error('SNS publish failed:', snsError);
+      }
+    }
 
     return {
       statusCode: 201,

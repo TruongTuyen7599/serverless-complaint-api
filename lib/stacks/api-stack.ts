@@ -3,6 +3,7 @@ import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as lambda_events from 'aws-cdk-lib/aws-lambda-event-sources';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 import { Construct } from 'constructs';
@@ -20,7 +21,7 @@ export class ApiStack extends cdk.Stack {
     const { complaintsTable, complaintTopic, complaintQueue } = resources!;
 
     const createComplaintLambda = new NodejsFunction(this, 'CreateComplaintFunction', {
-      runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+      runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
       handler: 'handler',
       entry: path.join(__dirname, '../resources/lambdas/create-complaint.ts'),
       environment: {
@@ -30,7 +31,7 @@ export class ApiStack extends cdk.Stack {
     });
 
     const getComplaintLambda = new NodejsFunction(this, 'GetComplaintFunction', {
-      runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+      runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
       handler: 'handler',
       entry: path.join(__dirname, '../resources/lambdas/get-complaint.ts'),
       environment: {
@@ -38,9 +39,29 @@ export class ApiStack extends cdk.Stack {
       },
     });
 
+    const processComplaintLambda = new NodejsFunction(this, 'ProcessComplaintFunction', {
+      runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
+      handler: 'handler',
+      entry: path.join(__dirname, '../resources/lambdas/process-complaint.ts'),
+      timeout: cdk.Duration.seconds(60),
+      environment: {
+        TABLE_NAME: complaintsTable.tableName,
+      },
+    });
+
+    // Grant permissions
     complaintsTable.grantReadWriteData(createComplaintLambda);
     complaintsTable.grantReadData(getComplaintLambda);
+
+    complaintsTable.grantWriteData(processComplaintLambda); 
     complaintTopic.grantPublish(createComplaintLambda);
+    complaintQueue.grantConsumeMessages(processComplaintLambda); 
+
+    processComplaintLambda.addEventSource(
+      new lambda_events.SqsEventSource(complaintQueue, {
+        batchSize: 10, // Process 10 messages cùng lúc
+      })
+    );
 
     const api = new apigateway.RestApi(this, 'ComplaintsApi', {
       restApiName: 'Complaints Service',
