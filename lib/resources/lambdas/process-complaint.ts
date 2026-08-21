@@ -35,15 +35,14 @@ export const handler: SQSHandler = async (event: SQSEvent) => {
       const sqsBody = JSON.parse(record.body);
       const snsMessage = JSON.parse(sqsBody.Message);
       const complaint = snsMessage as ComplaintMessage;
+      console.log(`   - ComplaintID: ${complaint.complaintId}`);
+      console.log(`   - Category: ${complaint.category}`);
       if (complaint.category === "technical") {
         console.error(`❌ SIMULATED FAILURE (attempt ${retryAttempt}/3) - Testing DLQ`);
         failedMessageIds.push(record.messageId);
         failCount++;
         continue; // ← Skip processing, move to next message
       }
-      console.log(`   - ComplaintID: ${complaint.complaintId}`);
-      console.log(`   - Category: ${complaint.category}`);
-
       await processComplaint(complaint);
 
       successCount++;
